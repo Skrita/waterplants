@@ -2,15 +2,26 @@ name: Water plants ping
 
 on:
   schedule:
-    # GitHub Actions uses UTC. 07:00 UTC ≈ 09:00 in Europe/Prague (CET/CEST aware).
-    - cron: "0 7 * * 1,4"  # Mondays & Thursdays at 09:00 Prague local time
-  workflow_dispatch: {}     # allow manual trigger
+    - cron: "0 * * * *"   # run hourly, on the hour (UTC)
+  workflow_dispatch: {}
 
 jobs:
   post-reminder:
     runs-on: ubuntu-latest
     steps:
+      - name: Decide if we should post (Prague local time)
+        id: gate
+        run: |
+          DOW=$(TZ=Europe/Prague date +%u)   # 1=Mon ... 7=Sun
+          HM=$(TZ=Europe/Prague date +%H%M)  # e.g. 1800
+          if { [ "$DOW" = "3" ] || [ "$DOW" = "7" ]; } && [ "$HM" = "1800" ]; then
+            echo "post=yes" >> $GITHUB_OUTPUT
+          else
+            echo "post=no" >> $GITHUB_OUTPUT
+          fi
+
       - name: Post Discord message
+        if: steps.gate.outputs.post == 'yes'
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WATER_WEBHOOK }}
         run: |
