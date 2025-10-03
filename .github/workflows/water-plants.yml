@@ -1,0 +1,29 @@
+name: Water plants ping
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # run hourly, on the hour (UTC)
+  workflow_dispatch: {}
+
+jobs:
+  post-reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide if we should post (Prague local time)
+        id: gate
+        run: |
+          DOW=$(TZ=Europe/Prague date +%u)   # 1=Mon ... 7=Sun
+          HM=$(TZ=Europe/Prague date +%H%M)  # e.g. 1800
+          if { [ "$DOW" = "3" ] || [ "$DOW" = "7" ]; } && [ "$HM" = "1800" ]; then
+            echo "post=yes" >> $GITHUB_OUTPUT
+          else
+            echo "post=no" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post Discord message
+        if: steps.gate.outputs.post == 'yes'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WATER_WEBHOOK }}
+        run: |
+          payload='{"content":"🌿 Friendly reminder: did anyone water the plants today? Please react ✅ if done."}'
+          curl -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK"
